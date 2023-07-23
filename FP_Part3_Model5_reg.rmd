@@ -1,0 +1,135 @@
+---
+title: "Part 3: Regression Models - Model 5"
+author: "David Spellman"
+date: "12/9/2021"
+output: html_document
+---
+
+## Load packages
+```{r, load_tidyverse}
+library(tidyverse)
+library(tidymodels)
+library(mltools)
+library(caret)
+```
+
+## Read data
+
+The code chunk below reads in the final project data.  
+
+```{r, read_final_data}
+df <- readr::read_csv("cs_1675_fall2021_finalproject.csv", col_names = TRUE)
+```
+
+The `readr::read_csv()` function displays the data types and column names associated with the data. However, a glimpse is shown below that reveals the number of rows and also shows some of the representative values for the columns.  
+
+```{r, show_data_glimpse}
+dft <- df %>% mutate(output=boot::logit(output))
+
+bfm_df <- dft
+bf_df <- bfm_df %>% select(-m)
+
+efm_df <- dft %>% mutate(x5 = 1.0 - (x1+x2+x3+x4), w=x2/(x3+x4), z=(x1+x2)/(x4+x5), t=v1*v2)
+ef_df <- efm_df %>% select(-m)
+
+ef_df %>% glimpse()
+```
+
+#Regularized regression with Elastic net:
+
+##5. Load model and regularize.
+  
+```{r}
+re_load_lm_5 <- readr::read_rds("part_3_model_5.rds")
+re_load_lm_5 %>% summary()
+```
+
+```{r}
+penalty()
+```
+
+```{r}
+mixture()
+```
+
+```{r}
+my_lambda <- penalty(range = c(-10.5, 2), trans = log_trans())
+my_alpha <- mixture(range = c(0.1, 1.0))
+enet_grid <- grid_regular(my_lambda, my_alpha, 
+                          levels = c(penalty = 75, mixture = 5))
+enet_grid %>% glimpse()
+```
+
+```{r}
+enet_spec <- linear_reg(penalty = tune(), mixture = tune()) %>% 
+  set_engine("glmnet", 
+             # glmnet specific options
+             intercept = TRUE, standardize.response = TRUE, standardize = TRUE,
+             path_values = exp(seq(-10.5, 2, length.out = 75)))
+enet_spec %>% translate()
+```
+
+```{r}
+p3_m5_recipe <- recipe (logit_response~., data = ef_df) %>%
+  step_center(all_predictors()) %>% 
+  step_scale(all_predictors()) %>%
+  step_interact(terms=~ all_predictors():all_predictors()) %>%
+  prep(verbose = TRUE, log_changes = TRUE)
+```
+
+```{r}
+enet_wflow <- workflow() %>% 
+  add_model(enet_spec) %>% 
+  add_recipe(p3_m5_recipe)
+
+lasso_fit <- enet_wflow %>% 
+  update_model(linear_reg(penalty = 0.1, mixture = 1) %>% 
+                 set_engine("glmnet",
+                            intercept = TRUE, standardize.response = TRUE, standardize = TRUE,
+                            path_values = exp(seq(-10.5, 2, length.out = 75)))) %>% 
+  fit(ef_df)
+
+lasso_fit %>% extract_fit_parsnip() %>% 
+  pluck("fit") %>% 
+  plot(xvar = 'lambda')
+```
+
+```{r}
+if(parallel::detectCores(logical=FALSE) > 3){
+  library(doParallel)
+  
+  num_cores <- parallel::detectCores(logical=FALSE)
+  cl <- makePSOCKcluster(num_cores - 2)
+  registerDoParallel(cl)
+}
+```
+
+```{r}
+start_enet <- Sys.time()
+
+enet_res <- tune_grid(
+  enet_wflow,
+  resamples = cv_folds,
+  grid = enet_grid,
+  metrics = my_metrics
+)
+
+finish_enet <- Sys.time()
+
+finish_enet - start_enet
+```
+
+```{r}
+enet_res %>% autoplot() +
+  theme_bw() +
+  theme(legend.position = "top")
+```
+
+```{r}
+enet_res %>% readr::write_rds("Part3_model5_reg.rds")
+re_load_mod6_bayesian <- readr::read_rds("Part3_model5_reg.rds")
+re_load_mod6_bayesian %>% summary()
+```
+
+
+

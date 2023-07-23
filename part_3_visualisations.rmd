@@ -1,0 +1,137 @@
+---
+title: "Final Project for 1675"
+subtitle: "Part 3: Part 3 Analysis and Visualisations"
+author: "David Spellman"
+date: "12/5/2021"
+output: html_document
+---
+
+## Loading packages
+
+```{r, load_tidyverse}
+library(tidyverse)
+library(tidymodels)
+library(mltools)
+library(caret)
+library(coefplot)
+```
+
+```{r, read_test_train_data}
+train_test_df <- readr::read_csv("cs_1675_fall2021_finalproject.csv", col_names = TRUE)
+```
+
+```{r, build_pred_data_frames}
+indices <- sample (1:nrow(train_test_df), size = 200)
+sample_df <- train_test_df %>% slice(indices)
+pred_bfm_df <- sample_df
+pred_bf_df <- sample_df %>% select (-m)
+pred_efm_df <- sample_df %>% mutate (x5=(1-x1+x2+x3+x4), t=v1+v2, w=(x2/(x3+x4)), z=(x1+x2)/(x4+x5))
+pred_efm_df %>% glimpse()
+pred_ef_df <- pred_efm_df %>% tibble::as_tibble () %>% select (-m)
+```
+
+```{r, build_data_frames}
+dft <- train_test_df %>% mutate(logit_response = boot::logit (output)) %>% select (-output)
+bfm_df <- dft
+bf_df <- dft %>% select (-m)
+efm_df <- dft %>% mutate (x5=(1-x1+x2+x3+x4), t=v1+v2, w=(x2/(x3+x4)), z=(x1+x2)/(x4+x5))
+efm_df %>% glimpse()
+ef_df <- efm_df %>% tibble::as_tibble () %>% select (-m)
+```
+
+```{r}
+
+p3_m1 <- readr::read_rds("part_3_model_1.rds")
+p3_m1_v2 <- readr::read_rds("part_3_model_1_v2.rds")
+p3_m2 <- readr::read_rds("part_3_model_2.rds")
+p3_m3 <- readr::read_rds("part_3_model_3.rds")
+p3_m4 <- readr::read_rds("part_3_model_4.rds")
+p3_m5 <- readr::read_rds("part_3_model_5.rds")
+p3_m6 <- readr::read_rds("part_3_model_6.rds")
+p3_m7 <- readr::read_rds("part_3_model_7.rds")
+p3_m8 <- readr::read_rds("part_3_model_8.rds")
+p3_m9 <- readr::read_rds("part_3_model_9.rds")
+p3_m10 <- readr::read_rds("part_3_model_10.rds")
+p3_m11 <- readr::read_rds("part_3_model_11.rds")
+
+```
+
+```{r}
+
+p3_m1 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+p3_m1_v2 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+p3_m2 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+p3_m3 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+p3_m4 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+#p3_m5 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+p3_m6 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+#p3_m7 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+#p3_m8 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+#p3_m9 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+#p3_m10 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+#p3_m11 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+
+```
+
+```{r}
+plot_model <- function(model, df)
+{
+  pred_y <- predict(model, df)
+  df_pred <- df %>% mutate(pred=pred_y)
+  df_pred %>% ggplot(mapping=aes(x=z, y=logit_response)) +
+    geom_point() +
+    geom_line(mapping=aes(y=pred))
+}
+```
+
+```{r}
+plot_model(p3_m1, efm_df)
+```
+
+```{r}
+selective_efm_df <- efm_df[efm_df$m != "E" & efm_df$m != "C",]
+selective_efm_df <- selective_efm_df %>% select ( - v4, - v2 )
+plot_model(p3_m1_v2, selective_efm_df)
+```
+
+```{r}
+plot_model(p3_m2, efm_df)
+```
+
+```{r}
+plot_model(p3_m3, efm_df)
+```
+
+```{r}
+plot_model(p3_m4, efm_df)
+```
+
+```{r}
+plot_model(p3_m5, efm_df)
+```
+
+```{r}
+plot_model(p3_m6, efm_df)
+```
+
+```{r}
+plot_model(p3_m7, efm_df)
+```
+
+```{r}
+plot_model(p3_m8, efm_df)
+```
+
+```{r}
+plot_model(p3_m9, efm_df)
+```
+
+```{r}
+plot_model(p3_m10, efm_df)
+```
+
+```{r}
+plot_model(p3_m11, efm_df)
+```
+
+

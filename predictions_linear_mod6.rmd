@@ -1,0 +1,56 @@
+---
+title: "Final Project for 1675"
+subtitle: "Part II C: Linear Models: mod6 predictions"
+author: "David Spellman"
+date: "12/5/2021"
+output: html_document
+---
+
+## Loading packages
+
+```{r, load_tidyverse}
+library(tidyverse)
+library(tidymodels)
+library(mltools)
+library(caret)
+```
+
+## Reading in data
+
+```{r, read_final_data}
+df <- readr::read_csv("cs_1675_fall2021_finalproject.csv", col_names = TRUE)
+```
+
+```{r, build_data_frames}
+#dft <- df %>% select (-output)
+df <- df %>% mutate (logit=boot::logit(output))
+bfm_df <- df
+bf_df <- df %>% select (-m)
+efm_df <- df %>% mutate (x5=(1-x1+x2+x3+x4), t=v1+v2, w=(x2/(x3+x4)), z=(x1+x2)/(x4+x5))
+efm_df %>% glimpse()
+ef_df <- efm_df %>% tibble::as_tibble () %>% select (-m)
+```
+
+```{r, reload_mod6}
+mod6 <- readr::read_rds("linear_mod6_saved.rds")
+class(mod6)
+
+efm_df_fitted <- efm_df %>% mutate(fitted=as.vector(mod6$finalModel$fitted.values))
+efm_df_fitted %>% ggplot(mapping=aes(x=efm_df$z, y=logit)) +
+  geom_point() +
+  geom_line(mapping=aes(x=x1, y=fitted))
+
+```
+
+#### The trends in model 6 for this graph look better than model 9.
+
+
+```{r, graph_x1_x2_interaction}
+
+efm_df_fitted %>% ggplot(mapping=aes(x=x1*x2, y=logit)) +
+  geom_point() +
+  geom_line(mapping=aes(x=x1*x2, y=fitted))
+
+```
+
+#### The trends in model 6 for this graph look slightly better than model 9.

@@ -1,0 +1,69 @@
+---
+title: "Part 3: Regression Models - Model 1"
+author: "David Spellman"
+date: "12/9/2021"
+output: html_document
+---
+
+## Load packages
+```{r, load_tidyverse}
+library(tidyverse)
+library(caret)
+```
+
+## Read data
+
+The code chunk below reads in the final project data.  
+
+```{r, read_final_data}
+df <- readr::read_csv("cs_1675_fall2021_finalproject.csv", col_names = TRUE)
+```
+
+The `readr::read_csv()` function displays the data types and column names associated with the data. However, a glimpse is shown below that reveals the number of rows and also shows some of the representative values for the columns.  
+
+```{r, show_data_glimpse}
+dft <- df %>% mutate(output=boot::logit(output))
+
+bfm_df <- dft
+bf_df <- bfm_df %>% select(-m)
+#selective_bfm_df <- bfm_df %>% select (- mE, - mC, - v4, - v2, )
+selective_bfm_df <- bfm_df[bfm_df$m != "E" & bfm_df$m != "C",]
+selective_bfm_df <- selective_bfm_df %>% select ( - v4, - v2 )
+
+efm_df <- dft %>% mutate(x5 = 1.0 - (x1+x2+x3+x4), w=x2/(x3+x4), z=(x1+x2)/(x4+x5), t=v1*v2)
+ef_df <- efm_df %>% select(-m)
+
+selective_bfm_df %>% glimpse()
+```
+
+#Linear models:
+
+##1. Additive features using the “ base feature ” set
+
+```{r}
+my_ctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+my_metric <- "RMSE"
+
+lm_1 <- train(output~.,
+              data = selective_bfm_df,
+              method = "lm",
+              metric = my_metric,
+              preProcess = c("center", "scale"),
+              trControl = my_ctrl)
+
+lm_1 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+```
+
+```{r}
+lm_1 %>% readr::write_rds("part_3_model_1_v2.rds")
+```
+
+```{r}
+re_load_lm_1 <- readr::read_rds("part_3_model_1_v2.rds")
+re_load_lm_1 %>% summary()
+```
+
+
+
+
+

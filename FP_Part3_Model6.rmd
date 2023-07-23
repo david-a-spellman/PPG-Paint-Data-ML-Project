@@ -1,0 +1,64 @@
+---
+title: "Part 3: Regression Models - Model 6"
+author: "David Spellman"
+date: "12/9/2021"
+output: html_document
+---
+
+## Load packages
+```{r, load_tidyverse}
+library(tidyverse)
+library(caret)
+```
+
+## Read data
+
+The code chunk below reads in the final project data.  
+
+```{r, read_final_data}
+df <- readr::read_csv("cs_1675_fall2021_finalproject.csv", col_names = TRUE)
+```
+
+The `readr::read_csv()` function displays the data types and column names associated with the data. However, a glimpse is shown below that reveals the number of rows and also shows some of the representative values for the columns.  
+
+```{r, show_data_glimpse}
+dft <- df %>% mutate(output=boot::logit(output))
+
+bfm_df <- dft
+bf_df <- bfm_df %>% select(-m)
+
+efm_df <- dft %>% mutate(x5 = 1.0 - (x1+x2+x3+x4), w=x2/(x3+x4), z=(x1+x2)/(x4+x5), t=v1*v2)
+ef_df <- efm_df %>% select(-m)
+
+ef_df %>% glimpse()
+```
+
+#Regularized regression with Elastic net:
+
+##6. The most complex model you tried in Part ii)
+  
+```{r}
+set.seed(2021)
+my_ctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+my_metric <- "RMSE"
+
+lm_6 <- train(output~(splines::ns(z, df=7)):m,
+              data = efm_df,
+              method = "lm",
+              metric = my_metric,
+              preProcess = c("center", "scale"),
+              trControl = my_ctrl)
+
+lm_6 %>% coefplot::coefplot() + theme_bw() + theme(legend.position='none')
+```
+
+
+```{r}
+lm_6 %>% readr::write_rds("part_3_model_6.rds")
+```
+
+```{r}
+re_load_lm_6 <- readr::read_rds("part_3_model_6.rds")
+re_load_lm_6 %>% summary()
+```
+

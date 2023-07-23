@@ -1,0 +1,525 @@
+---
+title: "Final Project for 1675"
+subtitle: "Exploring the Data"
+author: "David Spellman"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, load_tidyverse}
+library(tidyverse)
+```
+
+```{r, read_final_data}
+df <- readr::read_csv("cs_1675_fall2021_finalproject.csv", col_names = TRUE)
+```
+
+### Take an initial look at the data and some basic statistics
+
+```{r, show_data_glimpse}
+df %>% glimpse ()
+df %>% summary ()
+stats <- tibble::tibble (variable = names (df), num_missing = map_dbl (df, ~ sum (is.na (.))), num_unique = map_dbl (df, n_distinct), min_value = map_dbl (df, min), median_value = map_dbl (df, median), max_value = map_dbl (df, max))
+stats %>% knitr::kable (caption = "variables overview")
+df %>% select (- output) %>% distinct () %>% dim ()
+```
+
+### First visualize the distributions of the data. 
+
+```{r, viz_replicated_striplot_mean}
+dfT %>% 
+  left_join(df_configs,
+            by = input_names) %>% 
+  filter(num_rows > 1) %>% 
+  ggplot(mapping = aes(x = as.factor(set_id), y = output)) +
+  stat_summary(geom = 'linerange',
+               fun.min = min, fun.max = max,
+               mapping = aes(group = set_id),
+               color = 'grey', size = 1.1) +
+  geom_point() +
+  stat_summary(fun.data = 'mean_se',
+               color = 'red',
+               mapping = aes(group = set_id),
+               fun.args = list(mult = 2)) +
+  geom_hline(yintercept = range(dfT$output),
+             color = 'grey', linetype = 'dashed', size = 1.2) +
+  theme_bw()
+```
+
+```{r, make_my_dfT_dfT}
+my_dfT <- dfT %>% 
+  group_by(across(dfT:m)) %>% 
+  summarise(output = mean(output),
+            .groups = 'drop')
+```
+
+```{r, check_ready_rows}
+my_dfT %>% dim()
+
+nrow(my_dfT) < nrow(dfT)
+```
+
+```{r, viz_all_hist}
+my_dfT %>% 
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_histogram(bins = 31) +
+  facet_wrap(~name, scales = "free") +
+  theme_bw() +
+  theme(axis.text.y = element_blank())
+```
+
+```{r, viz_z_bar}
+my_dfT %>% 
+  ggplot(mapping = aes(x = as.factor(z))) +
+  geom_bar(mapping = aes(y = stat(prop),
+                         group = 1)) +
+  geom_text(stat = 'count',
+            mapping = aes(y = after_stat( count / sum(count) ),
+                          label = after_stat( signif(count / sum(count), 3) )),
+            color = 'red', nudge_y = 0.01, size = 3) +
+  theme_bw()
+```
+
+### First we will graph the response in respect to each of the x inputs. 
+
+``` {r, plot_output_in_terms_of_x1}
+df %>% ggplot (mapping = aes (x = x1, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Based on this graph it looks like the response becomes worse as x1 becomes greater
+### The best x1 values based on this graph seem to fall between 0.1 to 0.3
+
+``` {r, plot_output_in_terms_of_x2}
+df %>% ggplot (mapping = aes (x = x2, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_x3}
+df %>% ggplot (mapping = aes (x = x3, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_x4}
+df %>% ggplot (mapping = aes (x = x4, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now for calculating and plotting the x5 calculated input, as well as calculating w, t, and z for other plots.
+
+``` {r, calculate_x5_w_z_t_and_plot_output_in_terms_of_x5}
+### calculate x5, z, w, and t.
+dfT <- (df %>% tibble::as_tibble () %>% mutate (x5 = (1 - (x1 + x2 + x3 + x4)), w = (x2 / (x3 + x4)), z = ((x1 + x2) / (x4 + x5)), t = (v1 * v2)))
+
+### plot output against x5
+dfT %>% ggplot (mapping = aes (x = x5, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Visualizing calculated w input. 
+
+``` {r, plot_output_in_terms_of_w}
+dfT %>% ggplot (mapping = aes (x = w, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Visualizing calculated z input. 
+
+``` {r, plot_output_in_terms_of_z}
+dfT %>% ggplot (mapping = aes (x = z, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now we will graph the response in respect to each of the v inputs. 
+
+``` {r, plot_output_in_terms_of_v1}
+df %>% ggplot (mapping = aes (x = v1, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_v2}
+df %>% ggplot (mapping = aes (x = v2, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_v3}
+df %>% ggplot (mapping = aes (x = v3, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_v4}
+df %>% ggplot (mapping = aes (x = v4, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_v5}
+df %>% ggplot (mapping = aes (x = v5, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Plotting the output in terms of the calculated t input. 
+
+``` {r, plot_output_in_terms_of_t}
+dfT %>% ggplot (mapping = aes (x = t, y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Try the same graphs above but now binned by machine used to produce mixture. 
+
+### First we will graph the response in respect to each of the x inputs as before. 
+
+``` {r, plot_output_in_terms_of_x1}
+df %>% ggplot (mapping = aes (x = x1, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_x2}
+df %>% ggplot (mapping = aes (x = x2, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_x3}
+df %>% ggplot (mapping = aes (x = x3, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_x4}
+df %>% ggplot (mapping = aes (x = x4, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Now for visualizing the inputs derived by the x inputs binned by machine.
+
+``` {r, plot_output_in_terms_of_x5}
+dfT %>% ggplot (mapping = aes (x = x5, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Visualizing calculated w input binned by machine. 
+
+``` {r, plot_output_in_terms_of_w}
+dfT %>% ggplot (mapping = aes (x = w, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Visualizing calculated z input binned by machine. 
+
+``` {r, plot_output_in_terms_of_z}
+dfT %>% ggplot (mapping = aes (x = z, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Now we will graph the response in respect to each of the v inputs. 
+
+``` {r, plot_output_in_terms_of_v1}
+df %>% ggplot (mapping = aes (x = v1, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_v2}
+df %>% ggplot (mapping = aes (x = v2, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_v3}
+df %>% ggplot (mapping = aes (x = v3, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_v4}
+df %>% ggplot (mapping = aes (x = v4, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_v5}
+df %>% ggplot (mapping = aes (x = v5, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Plotting the output in terms of the calculated t input binned by machine. 
+
+``` {r, plot_output_in_terms_of_t}
+dfT %>% ggplot (mapping = aes (x = t, y = output)) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Try plotting with logit transformation applied to the response. 
+
+``` {r, plot_output_in_terms_of_x1}
+df %>% ggplot (mapping = aes (x = x1, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_x2}
+df %>% ggplot (mapping = aes (x = x2, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_x3}
+df %>% ggplot (mapping = aes (x = x3, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_x4}
+df %>% ggplot (mapping = aes (x = x4, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now for calculating and plotting the x5 calculated input, as well as calculating w, t, and z for other plots.
+
+``` {r, calculate_x5_w_z_t_and_plot_output_in_terms_of_x5}
+### calculate x5, z, w, and t.
+dfT <- (df %>% tibble::as_tibble () %>% mutate (x5 = (1 - (x1 + x2 + x3 + x4)), w = (x2 / (x3 + x4)), z = ((x1 + x2) / (x4 + x5)), t = (v1 * v2)))
+
+### plot output against x5
+dfT %>% ggplot (mapping = aes (x = x5, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+### Visualizing calculated w input. 
+
+``` {r, plot_output_in_terms_of_w}
+dfT %>% ggplot (mapping = aes (x = w, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+### Visualizing calculated z input. 
+
+``` {r, plot_output_in_terms_of_z}
+dfT %>% ggplot (mapping = aes (x = z, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now we will graph the response in respect to each of the v inputs. 
+
+``` {r, plot_output_in_terms_of_v1}
+df %>% ggplot (mapping = aes (x = v1, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_v2}
+df %>% ggplot (mapping = aes (x = v2, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_v3}
+df %>% ggplot (mapping = aes (x = v3, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_v4}
+df %>% ggplot (mapping = aes (x = v4, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, plot_output_in_terms_of_v5}
+df %>% ggplot (mapping = aes (x = v5, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+### Plotting the output in terms of the calculated t input. 
+
+``` {r, plot_output_in_terms_of_t}
+dfT %>% ggplot (mapping = aes (x = t, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now visualized the logistic response binned by machine as well. 
+
+``` {r, plot_output_in_terms_of_x1}
+df %>% ggplot (mapping = aes (x = x1, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_x2}
+df %>% ggplot (mapping = aes (x = x2, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_x3}
+df %>% ggplot (mapping = aes (x = x3, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_x4}
+df %>% ggplot (mapping = aes (x = x4, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Now for visualizing the inputs derived by the x inputs binned by machine.
+
+``` {r, plot_output_in_terms_of_x5}
+dfT %>% ggplot (mapping = aes (x = x5, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Visualizing calculated w input binned by machine. 
+
+``` {r, plot_output_in_terms_of_w}
+dfT %>% ggplot (mapping = aes (x = w, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Visualizing calculated z input binned by machine. 
+
+``` {r, plot_output_in_terms_of_z}
+dfT %>% ggplot (mapping = aes (x = z, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Now we will graph the response in respect to each of the v inputs. 
+
+``` {r, plot_output_in_terms_of_v1}
+df %>% ggplot (mapping = aes (x = v1, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_v2}
+df %>% ggplot (mapping = aes (x = v2, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_v3}
+df %>% ggplot (mapping = aes (x = v3, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_v4}
+df %>% ggplot (mapping = aes (x = v4, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+``` {r, plot_output_in_terms_of_v5}
+df %>% ggplot (mapping = aes (x = v5, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Plotting the output in terms of the calculated t input binned by machine. 
+
+``` {r, plot_output_in_terms_of_t}
+dfT %>% ggplot (mapping = aes (x = t, y = boot::logit (output))) + geom_point () + geom_smooth (method = lm) + facet_wrap (~m)
+```
+
+### Let's look for correlated features by looking at coupled interactions. 
+
+### Let's start with plotting wx1 against the output to see if they are correlated. 
+
+``` {r, check_wx1}
+dfT %>% ggplot (mapping = aes (x = (w * x1), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now let's do the same check for x5w. 
+
+``` {r, check_wx5}
+dfT %>% ggplot (mapping = aes (x = (x5 * w), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now let's do the same check for the values used to calculate w: x2, x3, and x4. 
+
+``` {r, check_wx2}
+dfT %>% ggplot (mapping = aes (x = (x2 * w), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_wx3}
+dfT %>% ggplot (mapping = aes (x = (x3 * w), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_wx4}
+dfT %>% ggplot (mapping = aes (x = (x4 * w), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now check z for the same correlations. 
+
+``` {r, check_zx1}
+dfT %>% ggplot (mapping = aes (x = (x1 * z), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_zx2}
+dfT %>% ggplot (mapping = aes (x = (x2 * z), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_zx3}
+dfT %>% ggplot (mapping = aes (x = (x3 * z), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_zx4}
+dfT %>% ggplot (mapping = aes (x = (x4 * z), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_zx5}
+dfT %>% ggplot (mapping = aes (x = (x5 * z), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now check x5 against the other four x inputs. 
+
+``` {r, check_x1x5}
+dfT %>% ggplot (mapping = aes (x = (x1 * x5), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_x5x2}
+dfT %>% ggplot (mapping = aes (x = (x2 * x5), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_x5x3}
+dfT %>% ggplot (mapping = aes (x = (x3 * x5), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_x5x4}
+dfT %>% ggplot (mapping = aes (x = (x4 * x5), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now let's check the interactions between the plain x inputs. 
+
+``` {r, check_x1x2}
+dfT %>% ggplot (mapping = aes (x = (x2 * x1), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_x1x3}
+dfT %>% ggplot (mapping = aes (x = (x3 * x1), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_x1x4}
+dfT %>% ggplot (mapping = aes (x = (x4 * x1), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now with x2 instead of x1. 
+
+``` {r, check_x2x3}
+dfT %>% ggplot (mapping = aes (x = (x3 * x2), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_x2x4}
+dfT %>% ggplot (mapping = aes (x = (x4 * x2), y = x2)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now x3 in the interaction instead of x2. 
+
+``` {r, check_x3x4}
+dfT %>% ggplot (mapping = aes (x = (x4 * x3), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now to look for correlations among the v inputs. 
+
+### Check for correlations between the derived t input and the five v inputs. 
+
+``` {r, check_tv1}
+dfT %>% ggplot (mapping = aes (x = (v1 * t), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_tv2}
+dfT %>% ggplot (mapping = aes (x = (v2 * t), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_tv3}
+dfT %>% ggplot (mapping = aes (x = (v3 * t), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_tv4}
+dfT %>% ggplot (mapping = aes (x = (v4 * t), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_tv5}
+dfT %>% ggplot (mapping = aes (x = (v5 * t), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now check v5 against the other four v inputs. 
+
+``` {r, check_v1v5}
+dfT %>% ggplot (mapping = aes (x = (v1 * v5), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_v5v2}
+dfT %>% ggplot (mapping = aes (x = (v2 * v5), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_v5v3}
+dfT %>% ggplot (mapping = aes (x = (v3 * v5), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_v5v4}
+dfT %>% ggplot (mapping = aes (x = (v4 * v5), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now let's check the interactions between the plain v inputs. 
+
+``` {r, check_v1v2}
+dfT %>% ggplot (mapping = aes (x = (v2 * v1), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_v1v3}
+dfT %>% ggplot (mapping = aes (x = (v3 * v1), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_v1v4}
+dfT %>% ggplot (mapping = aes (x = (v4 * v1), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now with v2 instead of v1. 
+
+``` {r, check_v2v3}
+dfT %>% ggplot (mapping = aes (x = (v3 * v2), y = output)) + geom_point () + geom_smooth (method = lm)
+```
+
+``` {r, check_v2v4}
+dfT %>% ggplot (mapping = aes (x = (v4 * v2), y = v2)) + geom_point () + geom_smooth (method = lm)
+```
+
+### Now v3 in the interaction instead of v2. 
+
+``` {r, check_v3v4}
+dfT %>% ggplot (mapping = aes (x = (v4 * v3), y = output)) + geom_point () + geom_smooth (method = lm)
+```

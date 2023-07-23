@@ -1,0 +1,161 @@
+---
+title: "Final Project for 1675"
+subtitle: "Linear Models"
+author: "David Spellman"
+date: "12/5/2021"
+output: html_document
+---
+
+## Loading packages
+
+```{r, load_tidyverse}
+library(tidyverse)
+library(tidymodels)
+library(mltools)
+library(caret)
+```
+
+## Reading in data
+
+```{r, read_final_data}
+df <- readr::read_csv("cs_1675_fall2021_finalproject.csv", col_names = TRUE)
+```
+
+```{r, build_data_frames}
+dft <- df %>% mutate(logit_response = boot::logit (output)) %>% select (-output)
+bfm_df <- dft
+bf_df <- dft %>% select (-m)
+efm_df <- dft %>% mutate (x5=(1-x1+x2+x3+x4), t=v1+v2, w=(x2/(x3+x4)), z=(x1+x2)/(x4+x5))
+efm_df %>% glimpse()
+ef_df <- efm_df %>% tibble::as_tibble () %>% select (-m)
+```
+
+### First try out some non-bayesian linear models. 
+
+```{r, training_specs}
+my_ctrl <- trainControl(method = "repeatedcv", number = 5, repeats = 5)
+```
+
+```{r, performance_metric}
+my_metric <- 'R-squared'
+```
+
+## Model comparison
+
+
+```{r}
+mod1 <- readr::read_rds("linear_mod1_saved.rds")
+mod2 <- readr::read_rds("linear_mod2_saved.rds")
+mod3 <- readr::read_rds("linear_mod3_saved.rds")
+mod4 <- readr::read_rds("linear_mod4_saved.rds")
+mod5 <- readr::read_rds("linear_mod5_saved.rds")
+mod6 <- readr::read_rds("linear_mod6_saved.rds")
+mod7 <- readr::read_rds("linear_mod7_saved.rds")
+mod8 <- readr::read_rds("linear_mod8_saved.rds")
+mod9 <- readr::read_rds("linear_mod9_saved.rds")
+```
+
+### Model 1 results
+```{r}
+mod1$results %>% glimpse()
+```
+
+### Model 2 results
+```{r}
+mod2$results %>% glimpse()
+```
+
+### Model 3 results
+```{r}
+mod3$results %>% glimpse()
+```
+
+### Model 4 results
+```{r}
+mod4$results %>% glimpse()
+```
+
+### Model 5 results
+```{r}
+mod5$results %>% glimpse()
+```
+
+### Model 6 results
+```{r}
+mod6$results %>% glimpse()
+```
+
+### Model 7 results
+```{r}
+mod7$results %>% glimpse()
+```
+
+### Model 8 results
+```{r}
+mod8$results %>% glimpse()
+```
+
+### Model 9 results
+```{r}
+mod9$results %>% glimpse()
+```
+
+#### mod6 is the best model, mod9 is the second best model, and mod8 is the third best model. This is determined by the fact that each of these models have the best performance across R-squared, RMSE, and MAE, as well as having small standard deviations for coefficients far from zero. However, even these three models have several coefficients that were not very useful and ended up getting zeroed out. 
+
+### Coef Plots for Top 3 Models
+
+```{r}
+### Best: Model 6
+mod6 %>% coefplot::coefplot () + theme_bw() + theme(legend.position='none')
+
+### 2nd Best: Model 9
+mod9 %>% coefplot::coefplot () + theme_bw() + theme(legend.position='none')
+
+### 3rd best: Model 8
+mod8 %>% coefplot::coefplot () + theme_bw() + theme(legend.position='none')
+```
+
+#### Now for trying out bayesian linear models for mod6 and mod9 with 5 repeats for five folds. 
+
+```{r, reload_mod6_bayesian}
+re_load_mod6_bayesian <- readr::read_rds("linear_mod6_bayesian_saved.rds")
+```
+
+```{r, show_reload_summary_mod6_bayesian}
+re_load_mod6_bayesian %>% glimpse()
+```
+
+```{r, reload_mod9_bayesian}
+re_load_mod9_bayesian <- readr::read_rds("linear_mod9_bayesian_saved.rds")
+```
+
+```{r, show_reload_summary_mod9_bayesian}
+re_load_mod9_bayesian %>% glimpse()
+```
+
+### Look at performance metrics for bayesian Model 6 & 9. 
+
+
+```{r, mod6_bayesian_results}
+#re_load_mod6_bayesian %>% model_performance()
+```
+
+```{r, mod9_bayesian_results}
+#re_load_mod9_bayesian %>% model_performance()
+```
+
+### Bayesian versions of Model 6 & 9 Coef plots
+```{r}
+### Best: Model 6
+bayesplot::color_scheme_set("viridis")
+plot(re_load_mod6_bayesian)
+
+### 2nd Best: Model 9
+plot(re_load_mod9_bayesian)
+```
+
+The bayesian version of Model 9 appears to be the best because it captures the overall trend and is less overfit than Model 6. 
+
+NOTE: I was blocked from seeing the metrics (specifically the stats for sigma) by an apparent bug in the stan package that prevented the model_performance() function from working (it fails with an index out of bounds error).
+
+

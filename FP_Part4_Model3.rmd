@@ -1,0 +1,142 @@
+---
+title: "Part 4: Regression Models - Model 3"
+author: "David Spellman"
+date: "12/9/2021"
+output: html_document
+---
+
+## Load packages
+```{r, load_tidyverse}
+library(tidyverse)
+library(caret)
+library(tidymodels)
+```
+
+## Read data
+
+The code chunk below reads in the final project data.  
+
+```{r, read_final_data}
+df <- readr::read_csv("cs_1675_fall2021_finalproject.csv", col_names = TRUE)
+```
+
+The `readr::read_csv()` function displays the data types and column names associated with the data. However, a glimpse is shown below that reveals the number of rows and also shows some of the representative values for the columns.  
+
+```{r, show_data_glimpse}
+dft <- df %>% mutate(output=boot::logit(output))
+
+bfm_df <- dft
+bf_df <- bfm_df %>% select(-m)
+
+efm_df <- dft %>% mutate(x5 = 1.0 - (x1+x2+x3+x4), w=x2/(x3+x4), z=(x1+x2)/(x4+x5), t=v1*v2)
+ef_df <- efm_df %>% select(-m)
+
+ef_df %>% glimpse()
+```
+
+```{r, build_data_frames}
+
+classes <- (df$output < 0.33)
+cdf <- df %>% mutate(Class=ifelse(classes, "good", "bad"))
+cdf <- cdf %>% mutate(event=ifelse(classes, 1, 0))
+cdf %>% glimpse()
+
+cbfm_df <- bfm_df %>% mutate(Class=ifelse(classes, "good", "bad")) %>% select(-output)
+cbf_df <- bf_df  %>% mutate(Class=ifelse(classes, "good", "bad")) %>% select(-output)
+cefm_df <- efm_df  %>% mutate(Class=ifelse(classes, "good", "bad")) %>% select(-output)
+cef_df <- ef_df  %>% mutate(Class=ifelse(classes, "good", "bad")) %>% select(-output)
+
+```
+
+
+You may use caret or tidymodels to handle the training, testing, and evaluation.
+You must train and tune the following models:
+
+```{r}
+set.seed(2021)
+
+cv_folds_bf <- vfold_cv(cbf_df, v = 5, repeats = 3, strata = Class)
+cv_folds_bf
+
+my_metrics <- metric_set(accuracy, roc_auc, mn_log_loss)
+```
+
+#Logistic regression:
+
+##3. Your top ranked linear model from Part ii)
+  
+Top Model from part 2: Model 6 - interactions of all continuous features
+```{r}
+
+cv_folds_p4_m3 <- vfold_cv(cef_df, v = 5, repeats = 3, strata = Class)
+cv_folds_p4_m3
+
+glm_spec_p4_m3 <- logistic_reg() %>% set_engine("glm")
+
+bp_stan_p4_m3 <- recipe(Class~., data = cef_df) %>% 
+  step_center(all_predictors()) %>% 
+  step_scale(all_predictors()) %>%
+  step_interact(terms=~all_predictors():all_predictors()) %>%
+  prep(verbose=TRUE)
+
+glm_add_wflow_p4_m3 <- workflow() %>% 
+  add_model(glm_spec_p4_m3) %>% 
+  add_recipe(bp_stan_p4_m3)
+
+glm_add_res_p4_m3 <- glm_add_wflow_p4_m3 %>% 
+  fit_resamples(cv_folds_p4_m3,
+                metrics = my_metrics,
+                control = control_resamples(save_pred = TRUE))
+
+glm_add_res_p4_m3$.notes[[1]]
+
+glm_add_res_p4_m3 %>% collect_metrics()
+
+``` 
+
+The 69% accuracy is slightly better than the empirical event proportion of about 64%.
+
+```{r}
+glm_add_res_p4_m3 %>% collect_predictions() %>% 
+  conf_mat(truth = Class, estimate = .pred_class)
+```
+
+```{r}
+
+glm_add_res_p4_m3 %>% collect_predictions(summarize = FALSE) %>% 
+  group_nest(id, id2) %>% 
+  mutate(conf_mats = map(data, 
+                         ~ yardstick::conf_mat(.x, truth = Class, estimate = .pred_class))) %>% 
+  pluck("conf_mats") %>% 
+  map_dfr( ~ as.data.frame(.x$table)) %>% 
+  group_by(Prediction, Truth) %>% 
+  summarise(Freq = mean(Freq, na.rm = TRUE),
+            .groups = 'drop') %>% 
+  mutate(Prediction = forcats::fct_rev(Prediction)) %>% 
+  ggplot(mapping = aes(x = Truth, y = Prediction)) +
+  geom_tile(mapping = aes(fill = Freq),
+            color = 'black') +
+  geom_text(mapping = aes(label = round(Freq,2)),
+            color = 'white', size = 7.5) +
+  theme_bw() +
+  theme(legend.position = 'none')
+
+```
+
+```{r}
+
+glm_add_res_p4_m3 %>% collect_predictions(summarize = FALSE) %>% 
+  roc_curve(Class, .pred_good) %>% 
+  autoplot()
+
+```
+
+```{r}
+glm_add_res_p4_m3 %>% readr::write_rds("part_4_model_3.rds")
+```
+
+```{r}
+re_load_p4_m3 <- readr::read_rds("part_4_model_3.rds")
+re_load_p4_m3 %>% summary()
+```
+

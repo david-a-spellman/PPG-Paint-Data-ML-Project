@@ -1,0 +1,77 @@
+---
+title: "Final Project for 1675"
+subtitle: "Part IIA: Linear Models: mod3"
+author: "David Spellman"
+date: "12/5/2021"
+output: html_document
+---
+
+## Loading packages
+
+```{r, load_tidyverse}
+library(tidyverse)
+library(tidymodels)
+library(mltools)
+library(caret)
+```
+
+## Reading in data
+
+```{r, read_final_data}
+df <- readr::read_csv("cs_1675_fall2021_finalproject.csv", col_names = TRUE)
+```
+
+```{r, build_data_frames}
+dft <- df %>% mutate(logit_response = boot::logit (output)) %>% select (-output)
+bfm_df <- dft
+bf_df <- dft %>% select (-m)
+efm_df <- dft %>% mutate (x5=(1-x1+x2+x3+x4), t=v1+v2, w=(x2/(x3+x4)), z=(x1+x2)/(x4+x5))
+efm_df %>% glimpse()
+ef_df <- efm_df %>% tibble::as_tibble () %>% select (-m)
+```
+
+### First try out some non-bayesian linear models. 
+
+```{r, training_specs}
+my_ctrl <- trainControl(method = "repeatedcv", number = 5, repeats = 5)
+```
+
+```{r, performance_metric}
+my_metric <- 'R-squared'
+```
+
+```{r, all_base_additive_feature_mod}
+set.seed (8131999)
+### All pair-wise interactions between base continuous features. 
+mod3 <- train(logit_response ~ (.)^2, 
+                    data = bf_df,
+                    method = "lm",
+                    metric = my_metric,
+                    trControl = my_ctrl)
+```
+
+### viewing results of nine non-bayesian models. 
+
+```{r, view_non_bayesian_model_result}
+#mod3$betas %>% dotplot (metric = "RMSE")
+#mod3$betas %>% dotplot (metric = "R-squared")
+#mod3$betas %>% dotplot (metric = "MAE")
+mod3 %>% coefplot::coefplot () + theme_bw() + theme(legend.position='none')
+```
+
+
+```{r, save_model}
+mod3 %>% readr::write_rds("linear_mod3_saved.rds")
+```
+
+```{r, reload_mod3}
+re_load_mod3 <- readr::read_rds("linear_mod3_saved.rds")
+```
+
+```{r, show_reload_summary}
+re_load_mod3 %>% summary()
+```
+
+```{r, check_mod3_equal}
+all.equal( mod3, re_load_mod3)
+```

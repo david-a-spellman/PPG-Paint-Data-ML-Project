@@ -1,0 +1,176 @@
+---
+title: "Final Project for 1675"
+subtitle: "Part 4: Part 4 Analysis and Visualisations"
+author: "David Spellman"
+date: "12/5/2021"
+output: html_document
+---
+
+## Loading packages
+
+```{r, load_tidyverse}
+library(tidyverse)
+library(tidymodels)
+library(mltools)
+library(caret)
+library(coefplot)
+```
+
+```{r, read_test_train_data}
+train_test_df <- readr::read_csv("cs_1675_fall2021_finalproject.csv", col_names = TRUE)
+```
+
+```{r, build_pred_data_frames}
+indices <- sample (1:nrow(train_test_df), size = 200)
+sample_df <- train_test_df %>% slice(indices)
+pred_bfm_df <- sample_df
+pred_bf_df <- sample_df %>% select (-m)
+pred_efm_df <- sample_df %>% mutate (x5=(1-x1+x2+x3+x4), t=v1+v2, w=(x2/(x3+x4)), z=(x1+x2)/(x4+x5))
+pred_efm_df %>% glimpse()
+pred_ef_df <- pred_efm_df %>% tibble::as_tibble () %>% select (-m)
+```
+
+```{r, build_data_frames}
+dft <- train_test_df %>% mutate(output = boot::logit (output))
+bfm_df <- dft
+bf_df <- dft %>% select (-m)
+efm_df <- dft %>% mutate (x5=(1-x1+x2+x3+x4), t=v1+v2, w=(x2/(x3+x4)), z=(x1+x2)/(x4+x5))
+efm_df %>% glimpse()
+ef_df <- efm_df %>% tibble::as_tibble () %>% select (-m)
+```
+
+```{r}
+classes <- (dft$output < 0.33)
+cdf <- dft %>% mutate(Class=ifelse(classes, "good", "bad"))
+cdf <- cdf %>% mutate(event=ifelse(classes, 1, 0))
+cdf %>% glimpse()
+
+cbfm_df <- bfm_df %>% mutate(Class=ifelse(classes, "good", "bad")) %>% select(-output )
+cbf_df <- bf_df  %>% mutate(Class=ifelse(classes, "good", "bad")) %>% select(-output )
+cefm_df <- efm_df  %>% mutate(Class=ifelse(classes, "good", "bad")) %>% select(-output )
+cef_df <- ef_df  %>% mutate(Class=ifelse(classes, "good", "bad")) %>% select(-output )
+```
+
+```{r}
+
+p4_m1 <- readr::read_rds("part_4_model_1.rds")
+p4_m2 <- readr::read_rds("part_4_model_2.rds")
+p4_m3 <- readr::read_rds("part_4_model_3.rds")
+p4_m4 <- readr::read_rds("part_4_model_4.rds")
+p4_m5 <- readr::read_rds("part_4_model_5.rds")
+p4_m6 <- readr::read_rds("part_4_model_6.rds")
+#p4_m7 <- readr::read_rds("part_4_model_7.rds")
+p4_m8 <- readr::read_rds("part_4_model_8.rds")
+p4_m9 <- readr::read_rds("part_4_model_9.rds")
+p4_m10 <- readr::read_rds("part_4_model_10.rds")
+p4_m11 <- readr::read_rds("part_4_model_11.rds")
+
+```
+
+
+```{r}
+library(ROCR)
+plot_ROC <- function(model, df)
+{
+  model_prob <- predict(model, df, type = "prob")$good
+  
+  preds <- prediction(model_prob, df$Class)
+  #print(preds)
+  
+  model_perf <- preds %>% performance(measure = "tpr", x.measure = "fpr")
+  
+  # Plot ROC curve
+  plot(model_perf, col = "black")
+  abline(a=0, b= 1, lty = 2)
+  
+  model_perf
+}
+
+```
+
+## Model 1: Additive base features
+```{r}
+p4_m1 %>% collect_predictions(summarize = FALSE) %>% 
+  roc_curve(Class, .pred_good, event_level="second") %>% 
+  autoplot()
+
+p4_m1 %>% collect_metrics()
+```
+
+## Model 2: Additive expanded features
+```{r}
+p4_m2 %>% collect_predictions(summarize = FALSE) %>% 
+  roc_curve(Class, .pred_good, event_level="second") %>% 
+  autoplot()
+
+p4_m2 %>% collect_metrics()
+```
+
+
+## Model 3: Top ranked from part 2 - Model 6 - all pairwise interactions
+```{r}
+p4_m3 %>% collect_predictions(summarize = FALSE) %>% 
+  roc_curve(Class, .pred_good, event_level="second") %>% 
+  autoplot()
+
+p4_m3 %>% collect_metrics()
+```
+
+
+## Model 4: Part 2 Model 9 - splines
+```{r}
+p4_m4 %>% collect_predictions(summarize = FALSE) %>% 
+  roc_curve(Class, .pred_good, event_level="second") %>% 
+  autoplot()
+
+p4_m4 %>% collect_metrics()
+```
+
+
+## Model 5: All pairs interacted with m --> regularized with enet
+```{r}
+plot_ROC(p4_m5, cefm_df)
+```
+
+
+## Model 6: Part 2 most complex model (splines) --> regularized with enet
+```{r}
+plot_ROC(p4_m6, cefm_df)
+```
+
+## Model 7: Neural Network (No plot--training would not complete)
+```{r}
+#plot_ROC(p4_m7, cefm_df)
+```
+
+
+## Model 8: rand forest
+```{r}
+plot_ROC(p4_m8, cefm_df)
+```
+
+
+## Model 9: gradient boosted tree
+```{r}
+plot_ROC(p4_m9, cefm_df)
+```
+
+
+## Model 10: Partial least squares
+```{r}
+plot_ROC(p4_m10, cefm_df)
+```
+
+
+## Model 11: Support vector machines
+This model failed; produces predictions of value NA preventing the ROC plot from generating.
+
+```{r}
+#modelRes <- plot_ROC(p4_m11, cefm_df)
+```
+
+#### Model 8 (random forest) and Model 9 (gradient boosted tree) have nearly identical accuracies, but Model 9 has a better AUC. So I would pick Model 9 as the best.
+
+
+
+
